@@ -37,15 +37,15 @@ Usually Aces will become free because the Wild is the only piece you can place A
 ### Winning ###
 
 The game ends when both players run out of pieces to place.  Once the game concludes,
-
-### Controls ###
-
-You can scroll through moves via the keyboard.
-F = First Move
-P = Previous Move
-N = Next Move
-L = Last Move
 you will count up the length of all cardinal and diagonal lines both players have formed.  
 The player with the longest line wins.  If both player's longest line has the same length,
 you break the tie by comparing the next longest line, and the next longest line, and the next
 until either a winner has been decided or there are no more lines resulting in a draw.
+
+### Controls ###
+
+You can scroll through moves via the keyboard. \
+F = First Move \
+P = Previous Move \
+N = Next Move \
+L = Last Move
