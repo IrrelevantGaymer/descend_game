@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::{board::{Board, Inventory}, game::Game, tile::{Color, Face, Selected}, SIZE_X, SIZE_Y};
+use crate::{board::{Board, Inventory}, game::Game, tile::{Color, Face, Selected}, BOARD_HEIGHT, BOARD_WIDTH, CARD_SIZE, SIZE_X, SIZE_Y};
 
 pub fn mouse_click_system(
     window: Query<&Window, With<PrimaryWindow>>,
@@ -36,20 +36,20 @@ pub fn mouse_click_system(
                 return;
             }
 
-            if pos.x - w >= -325. && pos.x - w <= 325.
-                && pos.y - h >= -325. && pos.y - h <= 325. 
+            if pos.x - w >= -(BOARD_WIDTH + CARD_SIZE) / 2. && pos.x - w <= (BOARD_WIDTH + CARD_SIZE) / 2.
+                && pos.y - h >= -(BOARD_HEIGHT + CARD_SIZE) / 2. && pos.y - h <= (BOARD_HEIGHT + CARD_SIZE) / 2. 
             {
-                let x = (pos.x - w + 325.) as u32 / (650 / SIZE_X);
-                let y = 12 - ((pos.y - h + 325.) as u32 / (650 / SIZE_Y));
+                let x = (pos.x - w + (BOARD_WIDTH + CARD_SIZE) / 2.) as u32 / ((BOARD_WIDTH + CARD_SIZE) as u32 / SIZE_X);
+                let y = (SIZE_Y - 1) - ((pos.y - h + (BOARD_HEIGHT + CARD_SIZE) / 2.) as u32 / ((BOARD_HEIGHT + CARD_SIZE) as u32 / SIZE_Y));
                 if let Some(face) = selected.single().face {
                     let mut b = board.single_mut();
-                    let red_inv = inventory.iter().find(|e| *e.1 == Color::Red).unwrap().0.clone();
-                    let black_inv = inventory.iter().find(|e| *e.1 == Color::Black).unwrap().0.clone();
                     let mut inv = inventory.iter_mut().find(|e| *e.1 == b.color).unwrap().0;
                     if inv.can_place_face(face) 
-                        && b.can_place_tile(x, y, face).or(b.can_place_free(x, y, face)).is_ok() 
+                    && b.can_place_tile(x, y, face).or(b.can_place_free(x, y, face)).is_ok() 
                     {
                         inv.place_face(face);
+                        let red_inv = inventory.iter().find(|e| *e.1 == Color::Red).unwrap().0.clone();
+                        let black_inv = inventory.iter().find(|e| *e.1 == Color::Black).unwrap().0.clone();
                         selected.single_mut().face = None;
                         b.place_tile(x, y, face).ok().unwrap();
                         game.single_mut().add_move(x, y, face, b.clone(), red_inv.clone(), black_inv.clone());

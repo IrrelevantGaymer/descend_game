@@ -1,11 +1,13 @@
 mod board;
 mod game;
+mod keyboard;
 mod tile;
 mod mouse;
 
 use bevy::{prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}};
 use board::{update_screen, Board, Index, Inventory};
 use game::Game;
+use keyboard::keyboard_system;
 use mouse::mouse_click_system;
 use tile::{Color, Face, Selected, Tile};
 
@@ -13,12 +15,20 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (mouse_click_system, update_screen).chain())
+        .add_systems(Update, (mouse_click_system, keyboard_system, update_screen).chain())
         .run();
 }
 
-const SIZE_X: u32 = 13;
-const SIZE_Y: u32 = 13;
+const GAP: f32 = 1.15;
+const SIZE_X: u32 = 7;
+const SIZE_Y: u32 = 7;
+const MIN_SIZE: u32 = [SIZE_X, SIZE_Y][(SIZE_X < SIZE_Y) as usize];
+const MIN_SPACING: f32 = 600. / MIN_SIZE as f32;
+const BOARD_WIDTH: f32 = MIN_SPACING * SIZE_X as f32;
+const BOARD_HEIGHT: f32 = MIN_SPACING * SIZE_Y as f32;
+const CARD_SIZE: f32 = 600. / MIN_SIZE as f32 - GAP;
+const BLOCK_SIZE: f32 = (600. / MIN_SIZE as f32 - GAP) * 0.27;
+const FONT_SIZE: f32 = CARD_SIZE as f32 * 8./9.;
 
 fn setup(
     mut commands: Commands,
@@ -44,7 +54,7 @@ fn setup(
     };
     let tile_text_style = TextStyle {
         font: default(),
-        font_size: 40.,
+        font_size: FONT_SIZE,
         color: bevy::render::color::Color::rgba(0., 0., 0., 1.)
     };
     
@@ -61,10 +71,11 @@ fn setup(
             Tile::Card(_, Color::Red) => bevy::render::color::Color::rgba(1., 0., 0., 1.),
             Tile::Card(_, Color::Both) => bevy::render::color::Color::rgba(1., 0., 1., 1.)
         };
+        
         let shape = match board.get_tile(x as u32, y as u32).ok().unwrap() {
-            Tile::None => Mesh2dHandle(meshes.add(Rectangle::new(45.0, 45.0))),
-            Tile::Blocked => Mesh2dHandle(meshes.add(Circle::new(12.))),
-            Tile::Card(..) => Mesh2dHandle(meshes.add(Rectangle::new(45.0, 45.0)))
+            Tile::None => Mesh2dHandle(meshes.add(Rectangle::new(CARD_SIZE, CARD_SIZE))),
+            Tile::Blocked => Mesh2dHandle(meshes.add(Circle::new(BLOCK_SIZE))),
+            Tile::Card(..) => Mesh2dHandle(meshes.add(Rectangle::new(CARD_SIZE, CARD_SIZE)))
         };
 
         commands.spawn((MaterialMesh2dBundle {
@@ -72,8 +83,8 @@ fn setup(
             material: materials.add(color),
             transform: Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT to +X_EXTENT.
-                -600. / 2. + x as f32 / (SIZE_X - 1) as f32 * 600.,
-                -600. / 2. + y as f32 / (SIZE_Y - 1) as f32 * 600.,
+                -(MIN_SPACING * SIZE_X as f32) / 2. + x as f32 / (SIZE_X - 1) as f32 * (MIN_SPACING * SIZE_X as f32),
+                -(MIN_SPACING * SIZE_Y as f32) / 2. + y as f32 / (SIZE_Y - 1) as f32 * (MIN_SPACING * SIZE_Y as f32),
                 0.0,
             ),
             ..default()
@@ -89,8 +100,8 @@ fn setup(
             }, tile_text_style.clone()),
             transform: Transform::from_xyz(
                 // Distribute shapes from -X_EXTENT to +X_EXTENT.
-                -600. / 2. + x as f32 / (SIZE_X - 1) as f32 * 600.,
-                -600. / 2. + y as f32 / (SIZE_Y - 1) as f32 * 600.,
+                -(MIN_SPACING * SIZE_X as f32) / 2. + x as f32 / (SIZE_X - 1) as f32 * (MIN_SPACING * SIZE_X as f32),
+                -(MIN_SPACING * SIZE_Y as f32) / 2. + y as f32 / (SIZE_Y - 1) as f32 * (MIN_SPACING * SIZE_Y as f32),
                 1.,
             ),
             ..default()

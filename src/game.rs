@@ -41,6 +41,19 @@ impl Game {
     ) {
         self.moves.truncate(self.pos + 1);
         self.moves.push((Some(Move {x, y, face}), board, (red_inv, black_inv)));
+        self.pos += 1;
+    }
+
+    pub fn get_move(&self) -> &(Option<Move>, Board, (Inventory, Inventory)) {
+        return &self.moves[self.pos];
+    }
+
+    pub fn get_mut_move(&mut self) -> &mut (Option<Move>, Board, (Inventory, Inventory)) {
+        return &mut self.moves[self.pos];
+    }
+
+    pub fn get_pos(&self) -> usize {
+        return self.pos;
     }
 }
 

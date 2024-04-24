@@ -1,7 +1,7 @@
 use bevy::{asset::{Assets, Handle}, ecs::{component::Component, query::Without, system::{Query, ResMut}}, math::primitives::{Circle, Rectangle}, render::mesh::Mesh, sprite::{ColorMaterial, Mesh2dHandle}, text::Text};
 use bevy::render::color::Color as BevyColor;
 
-use crate::{tile::{Color, Face, Selected, Tile}, SIZE_X, UI};
+use crate::{tile::{Color, Face, Selected, Tile}, BLOCK_SIZE, CARD_SIZE, SIZE_X, UI};
 
 #[derive(Component, Clone)]
 pub struct Board {
@@ -282,9 +282,9 @@ pub fn update_screen(
         let y = *i as u32 / SIZE_X;
 
         meshes.insert(&mesh.0, match b.get_tile(x, y).ok().unwrap() {
-            Tile::None => Into::<Mesh>::into(Rectangle::new(45.0, 45.0)),
-            Tile::Blocked => Circle::new(12.).into(),
-            Tile::Card(..) => Rectangle::new(45.0, 45.0).into()
+            Tile::None => Into::<Mesh>::into(Rectangle::new(CARD_SIZE, CARD_SIZE)),
+            Tile::Blocked => Circle::new(BLOCK_SIZE).into(),
+            Tile::Card(..) => Rectangle::new(CARD_SIZE, CARD_SIZE).into()
         });
         materials.insert(color.id(), match b.get_tile(x, y).ok().unwrap() {
             Tile::None => if let Some(face) = s {
