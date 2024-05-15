@@ -23,6 +23,7 @@ const GAP: f32 = 1.15;
 const SIZE_X: u32 = 7;
 const SIZE_Y: u32 = 7;
 const MIN_SIZE: u32 = [SIZE_X, SIZE_Y][(SIZE_X < SIZE_Y) as usize];
+const MAX_SIZE: u32 = [SIZE_X, SIZE_Y][(SIZE_X > SIZE_Y) as usize];
 const MIN_SPACING: f32 = 600. / MIN_SIZE as f32;
 const BOARD_WIDTH: f32 = MIN_SPACING * SIZE_X as f32;
 const BOARD_HEIGHT: f32 = MIN_SPACING * SIZE_Y as f32;

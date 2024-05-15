@@ -1,7 +1,7 @@
 use bevy::{asset::{Assets, Handle}, ecs::{component::Component, query::Without, system::{Query, ResMut}}, math::primitives::{Circle, Rectangle}, render::mesh::Mesh, sprite::{ColorMaterial, Mesh2dHandle}, text::Text};
 use bevy::render::color::Color as BevyColor;
 
-use crate::{tile::{Color, Face, Selected, Tile}, BLOCK_SIZE, CARD_SIZE, SIZE_X, UI};
+use crate::{tile::{Color, Face, Selected, Tile}, BLOCK_SIZE, CARD_SIZE, MAX_SIZE, SIZE_X, SIZE_Y, UI};
 
 #[derive(Component, Clone)]
 pub struct Board {
@@ -168,6 +168,113 @@ impl Board {
         
         let index = self.size.0 * y + x;
         self.board[index as usize] = tile;
+    }
+
+    const NEG_DIAGONAL_BITMASK: u8 = 0b1000;
+    const VERTICAL_BITMASK: u8 = 0b0100;
+    const POS_DIAGONAL_BITMASK: u8 = 0b0010;
+    const HORIZONTAL_BITMASK: u8 = 0b0001;
+
+    const RIGHT_OFFSET: usize = 1;
+    const DOWN_LEFT_OFFSET: usize = SIZE_X as usize - 1;
+    const DOWN_OFFSET: usize = SIZE_X as usize;
+    const DOWN_RIGHT_OFFSET: usize = SIZE_X as usize + 1;
+
+    const WILD_INDEX: usize = (SIZE_X * SIZE_Y / 2) as usize;
+
+    pub fn get_lines(&self) -> ([usize; MAX_SIZE as usize], [usize; MAX_SIZE as usize]) {
+        let mut flags: [u8; (SIZE_X * SIZE_Y) as usize] = [0; (SIZE_X * SIZE_Y) as usize];
+        let mut counts: [[usize; MAX_SIZE as usize]; 2] = [[0; MAX_SIZE as usize]; 2];
+
+        for i in 0..flags.len() {
+            let Tile::Card(_, color) = self.board[i] else {
+                continue;
+            };
+
+            if color == Color::Both {
+                self.handle_lines(&mut flags, &mut counts, i, Color::Red);
+                self.handle_lines(&mut flags, &mut counts, i, Color::Black);
+                continue;
+            }
+
+            self.handle_lines(&mut flags, &mut counts, i, color)
+        }
+
+        return (counts[0], counts[1]);
+    }
+
+    fn on_left_edge(index: usize) -> bool {
+        return index % SIZE_X as usize == 0;
+    }
+
+    fn on_right_edge(index: usize) -> bool {
+        return index % SIZE_X as usize == SIZE_X as usize - 1; 
+    }
+
+    fn on_bottom_edge(index: usize) -> bool {
+        return index / SIZE_Y as usize == SIZE_Y as usize - 1;
+    }
+
+    fn handle_lines(&self,
+        flags: &mut [u8; (SIZE_X * SIZE_Y) as usize], counts: &mut [[usize; MAX_SIZE as usize]; 2], 
+        index:usize, color: Color
+    ) {
+        if flags[index] & Self::NEG_DIAGONAL_BITMASK == 0 {
+            self.handle_line(
+                flags, counts, color, 
+                Self::NEG_DIAGONAL_BITMASK, Self::DOWN_RIGHT_OFFSET, index, 
+                |index| Self::on_right_edge(index) || Self::on_bottom_edge(index)
+            );
+        }
+
+        if flags[index] & Self::VERTICAL_BITMASK == 0 {
+            self.handle_line(
+                flags, counts, color, 
+                Self::VERTICAL_BITMASK, Self::DOWN_OFFSET, index, 
+                |index| Self::on_bottom_edge(index)
+            );
+        }
+
+        if flags[index] & Self::POS_DIAGONAL_BITMASK == 0 {
+            self.handle_line(
+                flags, counts, color, 
+                Self::POS_DIAGONAL_BITMASK, Self::DOWN_LEFT_OFFSET, index, 
+                |index| Self::on_left_edge(index) || Self::on_bottom_edge(index)
+            );
+        }
+
+        if flags[index] & Self::HORIZONTAL_BITMASK == 0 {
+            self.handle_line(
+                flags, counts, color, 
+                Self::HORIZONTAL_BITMASK, Self::RIGHT_OFFSET, index, 
+                |index| Self::on_right_edge(index)
+            );
+        }
+    }
+
+    fn handle_line(&self,
+        flags: &mut [u8; (SIZE_X * SIZE_Y) as usize], counts: &mut [[usize; MAX_SIZE as usize]; 2], 
+        color: Color, bitmask: u8, offset: usize, index: usize, index_check: fn(usize) -> bool
+    ) {
+        let mut i = index;
+        let mut count = 0;
+        loop {
+            let Tile::Card(_, other_color) = self.board[i] else {
+                break;
+            };
+
+            if color != other_color {
+                break;
+            }
+            count += 1;
+            flags[i] |= bitmask;
+
+            if index_check(i) {
+                break;
+            }
+            i += offset;
+        }
+        counts[(color == Color::Red) as usize][count - 1] += 1;
     }
 }
 
