@@ -1,7 +1,7 @@
-use bevy::{asset::{Assets, Handle}, ecs::{component::Component, query::Without, system::{Query, ResMut}}, math::primitives::{Circle, Rectangle}, render::mesh::Mesh, sprite::{ColorMaterial, Mesh2dHandle}, text::Text};
+use bevy::{asset::{Assets, Handle}, ecs::{component::Component, query::Without, system::{Query, Res, ResMut, Resource}}, math::primitives::{Circle, Rectangle}, render::mesh::Mesh, sprite::{ColorMaterial, Mesh2dHandle}, text::Text};
 use bevy::render::color::Color as BevyColor;
 
-use crate::{tile::{Color, Face, Selected, Tile}, BLOCK_SIZE, CARD_SIZE, MAX_SIZE, SIZE_X, SIZE_Y, UI};
+use crate::{tile::{Color, Face, Selected, Tile}, InventoryUI, LineUI, BLOCK_SIZE, CARD_SIZE, MAX_SIZE, SIZE_X, SIZE_Y};
 
 #[derive(Component, Clone)]
 pub struct Board {
@@ -25,6 +25,9 @@ pub struct Index(pub usize);
 pub enum Dir {
     Left, Up, Right, Down
 }
+
+#[derive(Resource)]
+pub struct LineCount(pub [[usize; MAX_SIZE as usize]; 2]);
 
 impl Board {
     pub fn new(x: u32, y: u32) -> Board {
@@ -182,14 +185,16 @@ impl Board {
 
     const WILD_INDEX: usize = (SIZE_X * SIZE_Y / 2) as usize;
 
-    pub fn get_lines(&self) -> ([usize; MAX_SIZE as usize], [usize; MAX_SIZE as usize]) {
+    pub fn get_lines(&self) -> [[usize; MAX_SIZE as usize]; 2] {
         let mut flags: [u8; (SIZE_X * SIZE_Y) as usize] = [0; (SIZE_X * SIZE_Y) as usize];
         let mut counts: [[usize; MAX_SIZE as usize]; 2] = [[0; MAX_SIZE as usize]; 2];
 
+        //eprintln!("starting");
         for i in 0..flags.len() {
             let Tile::Card(_, color) = self.board[i] else {
                 continue;
             };
+            //eprintln!("looking at {i}");
 
             if color == Color::Both {
                 self.handle_lines(&mut flags, &mut counts, i, Color::Red);
@@ -199,8 +204,8 @@ impl Board {
 
             self.handle_lines(&mut flags, &mut counts, i, color)
         }
-
-        return (counts[0], counts[1]);
+        //eprintln!("{counts:#?}");
+        return counts;
     }
 
     fn on_left_edge(index: usize) -> bool {
@@ -219,7 +224,9 @@ impl Board {
         flags: &mut [u8; (SIZE_X * SIZE_Y) as usize], counts: &mut [[usize; MAX_SIZE as usize]; 2], 
         index:usize, color: Color
     ) {
-        if flags[index] & Self::NEG_DIAGONAL_BITMASK == 0 {
+        let shift = if index == Self::WILD_INDEX && color == Color::Red {4} else {0};
+        const MASK: u8 = 0b1111;
+        if (flags[index] >> shift) & MASK & Self::NEG_DIAGONAL_BITMASK == 0 {
             self.handle_line(
                 flags, counts, color, 
                 Self::NEG_DIAGONAL_BITMASK, Self::DOWN_RIGHT_OFFSET, index, 
@@ -227,7 +234,7 @@ impl Board {
             );
         }
 
-        if flags[index] & Self::VERTICAL_BITMASK == 0 {
+        if (flags[index] >> shift) & MASK & Self::VERTICAL_BITMASK == 0 {
             self.handle_line(
                 flags, counts, color, 
                 Self::VERTICAL_BITMASK, Self::DOWN_OFFSET, index, 
@@ -235,7 +242,7 @@ impl Board {
             );
         }
 
-        if flags[index] & Self::POS_DIAGONAL_BITMASK == 0 {
+        if (flags[index] >> shift) & MASK & Self::POS_DIAGONAL_BITMASK == 0 {
             self.handle_line(
                 flags, counts, color, 
                 Self::POS_DIAGONAL_BITMASK, Self::DOWN_LEFT_OFFSET, index, 
@@ -243,7 +250,7 @@ impl Board {
             );
         }
 
-        if flags[index] & Self::HORIZONTAL_BITMASK == 0 {
+        if (flags[index] >> shift) & MASK & Self::HORIZONTAL_BITMASK == 0 {
             self.handle_line(
                 flags, counts, color, 
                 Self::HORIZONTAL_BITMASK, Self::RIGHT_OFFSET, index, 
@@ -256,20 +263,29 @@ impl Board {
         flags: &mut [u8; (SIZE_X * SIZE_Y) as usize], counts: &mut [[usize; MAX_SIZE as usize]; 2], 
         color: Color, bitmask: u8, offset: usize, index: usize, index_check: fn(usize) -> bool
     ) {
+        //eprintln!("bitmask: {}\noffset: {}", bitmask, offset);
         let mut i = index;
         let mut count = 0;
         loop {
             let Tile::Card(_, other_color) = self.board[i] else {
+                //eprintln!("ran into empty or blocked at {} for {}, line is {} long", i, index, count);
                 break;
             };
 
-            if color != other_color {
+            if color != other_color && other_color != Color::Both {
+                //eprintln!("ran into wrong color at {} for {}, line is {} long", i, index, count);
                 break;
             }
             count += 1;
-            flags[i] |= bitmask;
+            if i == Self::WILD_INDEX {
+                let shift = if color == Color::Red {4} else {0}; 
+                flags[i] |= bitmask << shift;
+            } else {
+                flags[i] |= bitmask;
+            }
 
             if index_check(i) {
+                //eprintln!("{} at edge for {}, line is {} long", i, index, count);
                 break;
             }
             i += offset;
@@ -286,6 +302,10 @@ impl Inventory {
             queens: num_cards,
             jacks: num_cards
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        return self.aces == 0 && self.kings == 0 && self.queens == 0 && self.jacks == 0;
     }
 
     pub fn can_place_face(&self, face: Face) -> bool {
@@ -376,9 +396,11 @@ pub fn update_screen(
     board: Query<&Board>,
     inventory: Query<(&Inventory, &Color)>, 
     mut board_meshes: Query<(&mut Mesh2dHandle, &mut Handle<ColorMaterial>, &Index)>,
-    mut board_text: Query<(&mut Text, &Index), (Without<UI>, Without<Color>, Without<Face>)>,
+    mut board_text: Query<(&mut Text, &Index), (Without<Color>, Without<Face>, Without<InventoryUI>, Without<LineUI>)>,
+    mut line_text: Query<(&mut Text, &LineUI, &Color), (Without<Face>, Without<Index>, Without<InventoryUI>)>,
     mut face_meshes: Query<(&mut Mesh2dHandle, &mut Handle<ColorMaterial>), Without<Index>>,
-    mut inventory_text: Query<(&mut Text, &Color, &Face), (Without<UI>, Without<Index>)>,
+    mut inventory_text: Query<(&mut Text, &Color, &Face), (Without<LineUI>, Without<Index>, Without<InventoryUI>)>,
+    line_counts: Res<LineCount>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -416,6 +438,10 @@ pub fn update_screen(
             Tile::Card(Face::Jack, ..) => "J",
             _ => " "
         }.to_string();
+    }
+
+    for (mut text, size, color) in &mut line_text {
+        text.sections[0].value = format!("{}: {}", size.0 + 1, line_counts.0[(*color == Color::Red) as usize][size.0]);
     }
 
     let bc = b.color;

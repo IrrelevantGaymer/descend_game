@@ -1,6 +1,6 @@
 use bevy::{prelude::*, window::PrimaryWindow};
 
-use crate::{board::{Board, Inventory}, game::Game, tile::{Color, Face, Selected}, BOARD_HEIGHT, BOARD_WIDTH, CARD_SIZE, SIZE_X, SIZE_Y};
+use crate::{board::{Board, Inventory, LineCount}, game::Game, tile::{Color, Face, Selected}, BOARD_HEIGHT, BOARD_WIDTH, CARD_SIZE, SIZE_X, SIZE_Y};
 
 pub fn mouse_click_system(
     window: Query<&Window, With<PrimaryWindow>>,
@@ -8,6 +8,7 @@ pub fn mouse_click_system(
     mut board: Query<&mut Board>,
     mut selected: Query<&mut Selected>,
     mut inventory: Query<(&mut Inventory, &Color)>, 
+    mut line_counts: ResMut<LineCount>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
@@ -53,6 +54,7 @@ pub fn mouse_click_system(
                         selected.single_mut().face = None;
                         b.place_tile(x, y, face).ok().unwrap();
                         game.single_mut().add_move(x, y, face, b.clone(), red_inv.clone(), black_inv.clone());
+                        line_counts.0 = b.get_lines();
                     }
                 }
             }

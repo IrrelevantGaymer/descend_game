@@ -5,7 +5,7 @@ mod tile;
 mod mouse;
 
 use bevy::{prelude::*, sprite::{MaterialMesh2dBundle, Mesh2dHandle}};
-use board::{update_screen, Board, Index, Inventory};
+use board::{update_screen, Board, Index, Inventory, LineCount};
 use game::Game;
 use keyboard::keyboard_system;
 use mouse::mouse_click_system;
@@ -43,9 +43,19 @@ fn setup(
         font_size: 60.,
         color: bevy::render::color::Color::rgba(1., 0., 0., 1.)
     };
+    let red_line_text_style = TextStyle {
+        font: default(),
+        font_size: 30.,
+        color: bevy::render::color::Color::rgba(1., 0., 0., 1.)
+    };
     let black_text_style = TextStyle {
         font: default(),
         font_size: 60.,
+        color: bevy::render::color::Color::rgba(0.5, 0.5, 0.5, 1.)
+    };
+    let black_line_text_style = TextStyle {
+        font: default(),
+        font_size: 30.,
         color: bevy::render::color::Color::rgba(0.5, 0.5, 0.5, 1.)
     };
     let card_text_style = TextStyle {
@@ -108,6 +118,29 @@ fn setup(
             ..default()
         }, Index(i as usize)));
     }
+
+    commands.insert_resource(LineCount([[0; MAX_SIZE as usize]; 2]));
+
+    for i in 1..(MAX_SIZE as usize) {
+        commands.spawn((TextBundle::from_section(
+            format!("{}: 0", i + 1), 
+            red_line_text_style.clone()
+        ).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10. + (i - 1) as f32 * 20.),
+            right: Val::Percent(55.),
+            ..Default::default()
+        }), LineUI(i), Color::Red));
+        commands.spawn((TextBundle::from_section(
+            format!("{}: 0", i + 1), 
+            black_line_text_style.clone()
+        ).with_style(Style {
+            position_type: PositionType::Absolute,
+            top: Val::Px(10. + (i - 1) as f32 * 20.),
+            left: Val::Percent(55.),
+            ..Default::default()
+        }), LineUI(i), Color::Black));
+    }
     
     for i in 0..4 {
         commands.spawn(MaterialMesh2dBundle {
@@ -126,7 +159,7 @@ fn setup(
             }, card_text_style.clone()),
             transform: Transform::from_xyz(-500., 240. - (i * 160) as f32, 1.),
             ..default()
-        }, UI));
+        }, InventoryUI));
     }
     commands.spawn(
         (Text2dBundle {
@@ -216,4 +249,7 @@ fn setup(
 }
 
 #[derive(Component)]
-pub struct UI;
+pub struct InventoryUI;
+
+#[derive(Component)]
+pub struct LineUI(pub usize);
